@@ -14,6 +14,7 @@
 
 t_CKINT video_data_offset = 0;
 
+
 /* Mac OS X video capture portions of this code were taken from the avvideowall
    example code 
  */
@@ -23,6 +24,7 @@ t_CKINT video_data_offset = 0;
 @end
 
 @implementation AVCaptureInput (ConvenienceMethodsCategory)
+
 
 // Find the input port with the target media type
 - (AVCaptureInputPort *)portWithMediaType:(NSString *)mediaType
@@ -73,10 +75,13 @@ public:
         [m_session setSessionPreset:AVCaptureSessionPreset640x480];
         
         NSMutableArray *devices = [NSMutableArray array];
-        for (AVCaptureDevice *device in [AVCaptureDevice devices])
+        for(AVCaptureDevice *device in [AVCaptureDevice devices])
         {
             if([device hasMediaType:AVMediaTypeVideo] || [device hasMediaType:AVMediaTypeMuxed])
+            {
+                NSLog(@"%@", [device localizedName]);
                 [devices addObject:device];
+            }
         }
         
         if([devices count] == 0)
@@ -230,6 +235,83 @@ CK_DLL_MFUN(video_pixel)
         RETURN->v_int = 0;
 }
 
+float window(float dist, float width)
+{
+    if(dist < width)
+    {
+        return cosf(M_PI/2.0f*(dist/width));
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+void get_components(int pix, float &r, float &g, float &b)
+{
+    b = ((pix>> 0)&0xFF)/255.0;
+    g = ((pix>> 8)&0xFF)/255.0;
+    r = ((pix>>16)&0xFF)/255.0;
+}
+
+int set_components(float r, float g, float b)
+{
+    int pix = 0;
+    
+    if(r > 1) pix |= 0xFF0000;
+    else if(r > 0) pix |= ((int)(r*255))<<16;
+    if(g > 1) pix |= 0x00FF00;
+    else if(g > 0) pix |= ((int)(g*255))<< 8;
+    if(b > 1) pix |= 0x0000FF;
+    else if(b > 0) pix |= ((int)(b*255))<< 0;
+    
+    return pix;
+}
+
+CK_DLL_MFUN(video_pixelWithRadius)
+{
+    Video * vid = (Video *) OBJ_MEMBER_INT(SELF, video_data_offset);
+    
+    t_CKINT x = GET_NEXT_INT(ARGS);
+    t_CKINT y = GET_NEXT_INT(ARGS);
+    t_CKINT radius = GET_NEXT_INT(ARGS);
+    
+    // fprintf(stderr, "x: %li y: %li\n", x, y);
+    
+    if(vid->pixels && x >= 0 && x < vid->width && y >= 0 && y < vid->height)
+    {
+        float r, g, b;
+        float num;
+        get_components(vid->pixels[y*vid->width+x], r, g, b);
+        
+        for(int x2 = x-radius; x2 < x+radius; x2++)
+        {
+            for(int y2 = y-radius; y2 < y+radius; y2++)
+            {
+                if(x2 >= 0 && x2 < vid->width && y2 >= 0 && y2 < vid->height)
+                {
+                    int distsq = (x-x2)*(x-x2) + (y-y2)*(y-y2);
+                    if(distsq < radius)
+                    {
+                        float dist = sqrtf(distsq);
+                        float r2, g2, b2;
+                        get_components(vid->pixels[y2*vid->width+x2], r2, g2, b2);
+                        float alpha = window(dist, radius);
+                        r += alpha*r2;
+                        g += alpha*g2;
+                        b += alpha*b2;
+                        num += alpha;
+                    }
+                }
+            }
+        }
+        
+        RETURN->v_int = set_components(r/num, g/num, b/num);
+    }
+    else
+        RETURN->v_int = 0;
+}
+
 CK_DLL_QUERY( Video )
 {
     QUERY->setname(QUERY, "Video");
@@ -251,6 +333,11 @@ CK_DLL_QUERY( Video )
     QUERY->add_mfun(QUERY, video_pixel, "int", "pixel");
     QUERY->add_arg(QUERY, "int", "x");
     QUERY->add_arg(QUERY, "int", "y");
+    
+    QUERY->add_mfun(QUERY, video_pixelWithRadius, "int", "pixel");
+    QUERY->add_arg(QUERY, "int", "x");
+    QUERY->add_arg(QUERY, "int", "y");
+    QUERY->add_arg(QUERY, "int", "radius");
     
     video_data_offset = QUERY->add_mvar(QUERY, "int", "@vid_data", false);
 

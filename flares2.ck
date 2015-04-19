@@ -9,7 +9,9 @@ gfx.fullscreen();
 gfx.width() => float WIDTH;
 gfx.height() => float HEIGHT;
 
-100 => float r;
+WIDTH/30 => float inc;
+75 => float r;
+
 [-r, -r,
   r, -r,
  -r,  r,
@@ -25,17 +27,16 @@ gfx.height() => float HEIGHT;
 chuglImage img;
 img.load(me.dir()+"flare.png");
 
-Image img2;
-img2.load(me.dir()+"gypsy.jpg");
+//Image img2;
+//img2.load(me.dir()+"gypsy.jpg");
 
 Video vid;
 vid.open();
 
-1::second => now;
+//1::second => now;
 
 <<< vid.width(), vid.height() >>>;
 
-WIDTH/16 => float inc;
 (WIDTH/inc) $int => int divwd;
 (HEIGHT/inc) $int => int divht;
 
@@ -58,7 +59,7 @@ while(true)
 {
     gl.MatrixMode(gl.PROJECTION);
     gl.LoadIdentity();
-    gl.Ortho(0, WIDTH, 0, HEIGHT, -100, 100);
+    gl.Ortho(0, WIDTH, 0, HEIGHT, -10, 100);
     
     gl.MatrixMode(gl.MODELVIEW);
     
@@ -79,9 +80,12 @@ while(true)
             
             ((x$float)/divwd*vid.width()) $int => int imgx;
             ((y$float)/divht*vid.height()) $int => int imgy;
+            // flip y axis (because +y in opengl is bottom->top)
             vid.height()-imgy => imgy;
+            // flip x axis (for mirroring effect)
+            vid.width()-imgx => imgx;
             
-            vid.pixel(imgx, imgy) => int pix;
+            vid.pixel(imgx, imgy, (inc*2)$int) => int pix;
             //((pix>>24)&0xFF)/255.0 => float a; ((pix>>16)&0xFF)/255.0 => float b; 
             //((pix>>8)&0xFF)/255.0 => float g;  ((pix>>0)&0xFF)/255.0 => float r;
             ((pix>>0)&0xFF)/255.0 => float b; ((pix>>8)&0xFF)/255.0 => float g; 
@@ -92,6 +96,12 @@ while(true)
             //Math.pow(g,10) => g;
             //Math.pow(b,10) => b;
             
+            // centralize
+            0.2126*r + 0.7152*g + 0.0722*b => float br;
+            br => r;
+            0 => g;
+            0 => b;
+            
             gl.PushMatrix();
             
             gl.Enable(gl.BLEND);
@@ -99,6 +109,7 @@ while(true)
             
             //gfx.hsv(h, s, 1.0, c.val()*0.83);
             flicker[x][y].val() => float val;
+            
             gl.Color4f(r*val, g*val, b*val, 0.83*val);
             gl.DisableClientState(gl.COLOR_ARRAY);
             
