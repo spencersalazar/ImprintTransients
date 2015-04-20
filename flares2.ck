@@ -1,5 +1,28 @@
 // sporking + rendering test
 
+curveExp ping;
+1 => ping.target;
+
+fun void computeFlux()
+{
+    adc => FFT fft =^ Flux flux => blackhole;
+    
+    1024 => fft.size;
+    Windowing.hann(fft.size()) => fft.window;
+    fft.size()/4 => int HOP_SIZE;
+
+    while(true)
+    {
+        flux.upchuck();
+        if(flux.fval(0) > 0.75)
+            1+8*flux.fval(0) => ping.target;
+        
+        HOP_SIZE::samp => now;
+    }
+}
+
+spork ~ computeFlux();
+
 chugl gfx;
 gfx.gl @=> OpenGL @ gl;
 
@@ -43,6 +66,7 @@ vid.open();
 curveExp flicker[divwd][divht];
 float phase[divwd][divht];
 float freq[divwd][divht];
+float scale[divwd][divht];
 for(0 => int x; x < divwd; x++)
 {
     for(0 => int y; y < divht; y++)
@@ -52,6 +76,7 @@ for(0 => int x; x < divwd; x++)
         2 => flicker[x][y].t40;
         Std.rand2f(0, 180) => phase[x][y];
         50+Std.rand2f(-20, 20) => freq[x][y];
+        Math.pow(2,Std.rand2f(-0.01,0.01)) => scale[x][y];
     }
 }
 
@@ -96,7 +121,7 @@ while(true)
             //Math.pow(g,10) => g;
             //Math.pow(b,10) => b;
             
-            // centralize
+            // centralize color
             0.2126*r + 0.7152*g + 0.0722*b => float br;
             br => r;
             0 => g;
@@ -110,14 +135,15 @@ while(true)
             //gfx.hsv(h, s, 1.0, c.val()*0.83);
             flicker[x][y].val() => float val;
             
-            gl.Color4f(r*val, g*val, b*val, 0.83*val);
+            ping.val() => float pingVal;
+            gl.Color4f(r*val*pingVal, g*val*pingVal, b*val*pingVal, 0.83*val);
             gl.DisableClientState(gl.COLOR_ARRAY);
             
             gl.Translatef(x*inc, y*inc, 0.0);
             gl.Rotatef(phase[x][y]+now/second*freq[x][y], 0.01, 0.01, 1);
             //gl.Rotatef(phase[x][y]+now/second*freq[x][y]*0.01, 0, 1, 0);
             //gl.Rotatef(phase[x][y]+now/second*freq[x][y]*0.01, 1, 0, 0);
-            gl.Scalef(flicker[x][y].val(), flicker[x][y].val(), 1);
+            gl.Scalef(flicker[x][y].val()*scale[x][y], flicker[x][y].val()*scale[x][y], 1);
             
             gl.VertexPointer(2, gl.DOUBLE, 0, geo);
             gl.EnableClientState(gl.VERTEX_ARRAY);
@@ -126,13 +152,15 @@ while(true)
             gl.BindTexture(gl.TEXTURE_2D, img.tex());
             gl.TexCoordPointer(2, gl.DOUBLE, 0, texcoord);
             gl.EnableClientState(gl.TEXTURE_COORD_ARRAY);
-            
+                        
             gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4);
             gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4);
             
-            gl.PopMatrix();            
+            gl.PopMatrix();
         }
     }
+    
+    1 => ping.target;
     
     (1.0/30.0)::second => now;
 }

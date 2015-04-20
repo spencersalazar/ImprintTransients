@@ -82,13 +82,14 @@ CK_DLL_MFUN(image_load)
     
     if(spriteImage)
     {
+        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
         // Get the width and height of the image
         width = CGImageGetWidth(spriteImage);
         height = CGImageGetHeight(spriteImage);
         // Allocated memory needed for the bitmap context
         img->pixels = (UInt32*) calloc(width * height, sizeof(UInt32));
         // Uses the bitmap creation function provided by the Core Graphics framework. 
-        spriteContext = CGBitmapContextCreate(img->pixels, width, height, 8, width * 4, CGImageGetColorSpace(spriteImage), kCGImageAlphaPremultipliedLast);
+        spriteContext = CGBitmapContextCreate(img->pixels, width, height, 8, width * 4, colorSpace, kCGImageAlphaPremultipliedLast);
         //CGContextTranslateCTM(spriteContext, width/2, height/2);
         //CGContextRotateCTM(spriteContext, M_PI);
         //CGContextTranslateCTM(spriteContext, -width/2, -height/2);
@@ -101,6 +102,7 @@ CK_DLL_MFUN(image_load)
         img->height = height;
         
         CGImageRelease(spriteImage); spriteImage = NULL;
+        CGColorSpaceRelease(colorSpace); colorSpace = NULL;
     }
     
     if(dataProvider != NULL) { CGDataProviderRelease(dataProvider); dataProvider = NULL; }
