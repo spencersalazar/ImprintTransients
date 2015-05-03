@@ -99,6 +99,7 @@ fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*2*pi), 3)); }
 
 30 => float JITTER_MAX_RADIUS;
 4 => float SCALING_MAX;
+1.25 => float br_reduction;
 
 fun void update()
 {
@@ -227,19 +228,13 @@ while(true)
             
             // apply monochromaticism
             0.2126*r + 0.7152*g + 0.0722*b => float br;
+            br*br_reduction + 1 => float br_reduce;
+            br_reduce /=> r; br_reduce /=> g; br_reduce /=> b;
             br*(mono_r) + r*Std.clampf(1-(mono_r+mono_g+mono_b), 0, 1) => r;
             br*(mono_g) + g*Std.clampf(1-(mono_r+mono_g+mono_b), 0, 1) => g;
             br*(mono_b) + b*Std.clampf(1-(mono_r+mono_g+mono_b), 0, 1) => b;
             
             // apply dynamic range control
-            // needs work
-            //Std.clampf(r, 0.5-dynamic_range/2.0, 0.5+dynamic_range/2.0) => r;
-            //Std.clampf(g, 0.5-dynamic_range/2.0, 0.5+dynamic_range/2.0) => g;
-            //Std.clampf(b, 0.5-dynamic_range/2.0, 0.5+dynamic_range/2.0) => b;
-            //if(br < clip_lo)
-            //0 => r => g => b;
-            //if(br > clip_hi)
-            //1 => r => g => b;
             Math.pow(r, Math.pow(2,dr_smash)) => r;
             Math.pow(g, Math.pow(2,dr_smash)) => g;
             Math.pow(b, Math.pow(2,dr_smash)) => b;
