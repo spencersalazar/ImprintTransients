@@ -1,5 +1,74 @@
 // sporking + rendering test
 
+class Flare
+{
+    float center_x, center_y;
+    1 => float radius;
+    float offset_x, offset_y;
+    1 => float radiusScale;
+    
+    0 => int arrayIdx;
+    2 => int vertDim;
+    float vertArray[vertDim*4];
+    float uvArray[2*4];
+    float colArray[4*4];
+    
+    fun float setScale(float scale)
+    {
+        scale => radiusScale;
+        _updateGeo();
+        return scale;
+    }
+    
+    fun void setCenter(float _center_x, float _center_y)
+    {
+        _center_x => center_x;
+        _center_y => center_y;
+        _updateGeo();
+    }
+    
+    fun void setOffset(float _offset_x, float _offset_y)
+    {
+        _offset_x => offset_x;
+        _offset_y => offset_y;
+        _updateGeo();
+    }
+    
+    fun void setColor(float r, float g, float b, float a)
+    {
+        r => colArray[arrayIdx+0*4+0] => colArray[arrayIdx+1*4+0] => colArray[arrayIdx+2*4+0] => colArray[arrayIdx+3*4+0];
+        g => colArray[arrayIdx+0*4+1] => colArray[arrayIdx+1*4+1] => colArray[arrayIdx+2*4+1] => colArray[arrayIdx+3*4+1];
+        b => colArray[arrayIdx+0*4+2] => colArray[arrayIdx+1*4+2] => colArray[arrayIdx+2*4+2] => colArray[arrayIdx+3*4+2];
+        a => colArray[arrayIdx+0*4+3] => colArray[arrayIdx+1*4+3] => colArray[arrayIdx+2*4+3] => colArray[arrayIdx+3*4+3];
+    } 
+    
+    fun void _updateGeo()
+    {
+        //<<< vertArray.size(), uvArray.size(), colArray.size() >>>;
+        center_x + offset_x => float _center_x;
+        center_y + offset_y => float _center_y;
+        radius*radiusScale => float _radius;
+        
+        center_x - radius => vertArray[arrayIdx+0*vertDim+0];
+        center_y - radius => vertArray[arrayIdx+0*vertDim+1];
+        
+        center_x + radius => vertArray[arrayIdx+1*vertDim+0];
+        center_y - radius => vertArray[arrayIdx+1*vertDim+1];
+        
+        center_x - radius => vertArray[arrayIdx+2*vertDim+0];
+        center_y + radius => vertArray[arrayIdx+2*vertDim+1];
+
+        center_x + radius => vertArray[arrayIdx+3*vertDim+0];
+        center_y + radius => vertArray[arrayIdx+3*vertDim+1];
+        
+        0 => uvArray[arrayIdx+0*2+0]; 0 => uvArray[arrayIdx+0*2+1];
+        1 => uvArray[arrayIdx+1*2+0]; 0 => uvArray[arrayIdx+1*2+1];
+        0 => uvArray[arrayIdx+2*2+0]; 1 => uvArray[arrayIdx+2*2+1];
+        1 => uvArray[arrayIdx+3*2+0]; 1 => uvArray[arrayIdx+3*2+1];
+    }
+}
+
+
 curveExp ping;
 1 => ping.target;
 
@@ -64,16 +133,31 @@ vid.open();
 (WIDTH/inc) $int => int divwd;
 (HEIGHT/inc) $int => int divht;
 
+
+Flare flare[divwd][divht];
+2 => int VERT_DIM;
+
+
 curveExp flicker[divwd][divht];
 float phase[divwd][divht];
 float freq[divwd][divht];
 float scale[divwd][divht];
 float jitter_amt[divwd][divht];
 float scaling_amt[divwd][divht];
+
 for(0 => int x; x < divwd; x++)
 {
     for(0 => int y; y < divht; y++)
     {
+        //VERT_DIM => flare[x][y].vertDim;
+        //float vertArray[VERT_DIM*4];
+        //vertArray @=> flare[x][y].vertArray;
+        //float uvArray[2*4];
+        //uvArray @=> flare[x][y].uvArray;
+        //float colArray[4*4];
+        //colArray @=> flare[x][y].colArray;
+        r => flare[x][y].radius;
+        
         0 => flicker[x][y].val;
         1 => flicker[x][y].target;
         2 => flicker[x][y].t40;
@@ -97,6 +181,7 @@ fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*2*pi), 3)); }
 0 => float jitter;
 0 => float scaling;
 
+1 => float MINI_JITTER;
 30 => float JITTER_MAX_RADIUS;
 4 => float SCALING_MAX;
 1.25 => float br_reduction;
@@ -244,29 +329,35 @@ while(true)
             gl.Enable(gl.BLEND);
             gl.BlendFunc(gl.SRC_ALPHA, gl.ONE);
             
-            //gfx.hsv(h, s, 1.0, c.val()*0.83);
             flicker[x][y].val() => float val;
             
             ping.val() => float pingVal;
             gl.Color4f(r*val*pingVal, g*val*pingVal, b*val*pingVal, 0.83*val);
-            gl.DisableClientState(gl.COLOR_ARRAY);
+            flare[x][y].setColor(r*val*pingVal, g*val*pingVal, b*val*pingVal, 0.83*val);
+            gl.ColorPointer(4, gl.DOUBLE, 0, flare[x][y].colArray);
+            gl.EnableClientState(gl.COLOR_ARRAY);
+            //gl.DisableClientState(gl.COLOR_ARRAY);
             
-            gl.Translatef(x*inc, y*inc, 0.0);
-            gl.Rotatef(phase[x][y]+now/second*freq[x][y], 0.01, 0.01, 1);
-            gl.Translatef(jitter*jitter_amt[x][y]*JITTER_MAX_RADIUS, jitter*jitter_amt[x][y]*JITTER_MAX_RADIUS, 0.0);
-            //gl.Rotatef(phase[x][y]+now/second*freq[x][y]*0.01, 0, 1, 0);
-            //gl.Rotatef(phase[x][y]+now/second*freq[x][y]*0.01, 1, 0, 0);
+            //gl.Translatef(x*inc, y*inc, 0.0);
+            //gl.Rotatef(phase[x][y]+now/second*freq[x][y], 0.01, 0.01, 1);
+            //gl.Translatef(jitter*jitter_amt[x][y]*JITTER_MAX_RADIUS, jitter*jitter_amt[x][y]*JITTER_MAX_RADIUS, 0.0);
             flicker[x][y].val()*scale[x][y]*Math.pow(SCALING_MAX,scaling_amt[x][y]*scaling) => float scale;
-            gl.Scalef(scale, scale, 1);
+            MINI_JITTER + jitter*jitter_amt[x][y]*JITTER_MAX_RADIUS => float jitter_radius;
+            phase[x][y]+now/second*freq[x][y] => float rotZ; // degrees
+            //gl.Scalef(scale, scale, 1);
+            flare[x][y].setCenter(x*inc, y*inc);
+            flare[x][y].setOffset(jitter_radius*Math.cos(rotZ/180.0*pi), jitter_radius*Math.sin(rotZ/180.0*pi));
+            flare[x][y].setScale(scale);
             
-            gl.VertexPointer(2, gl.DOUBLE, 0, geo);
+            gl.VertexPointer(2, gl.DOUBLE, 0, flare[x][y].vertArray);
             gl.EnableClientState(gl.VERTEX_ARRAY);
             
             gl.Enable(gl.TEXTURE_2D);
             gl.BindTexture(gl.TEXTURE_2D, img.tex());
-            gl.TexCoordPointer(2, gl.DOUBLE, 0, texcoord);
+            
+            gl.TexCoordPointer(2, gl.DOUBLE, 0, flare[x][y].uvArray);
             gl.EnableClientState(gl.TEXTURE_COORD_ARRAY);
-                        
+            
             gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4);
             gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4);
             
@@ -278,3 +369,4 @@ while(true)
     
     frame => now;
 }
+
