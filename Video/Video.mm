@@ -6,6 +6,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
 #include <AVFoundation/AVFoundation.h>
+#include <Accelerate/Accelerate.h>
 
 // general includes
 #include <stdio.h>
@@ -122,6 +123,7 @@ public:
     }
     
     UInt32 *pixels;
+    UInt32 *conv_pixels;
     UInt32 width, height;
     
 protected:
@@ -151,19 +153,38 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     //NSLog(@"newFrame %lu %lu", width, height);
     
     UInt32 *pixels = _video->pixels;
+    UInt32 *conv_pixels = _video->conv_pixels;
     
     if(pixels == NULL)
     {
-        NSLog(@"malloc %lu %lu", height*bytesPerRow, width*height*4);
+        //NSLog(@"malloc %lu %lu", height*bytesPerRow, width*height*4);
         pixels = (UInt32 *) malloc(height*bytesPerRow);
+        conv_pixels = (UInt32 *) malloc(height*bytesPerRow);
     }
     
     memcpy(pixels, baseAddress, height*bytesPerRow);
     
+    // filter
+    vImage_Buffer srcBuffer = {};
+    srcBuffer.data = pixels;
+    srcBuffer.height = height; srcBuffer.width = width;
+    srcBuffer.rowBytes = bytesPerRow;
+    vImage_Buffer dstBuffer = {};
+    dstBuffer.data = conv_pixels;
+    dstBuffer.height = height; dstBuffer.width = width;
+    dstBuffer.rowBytes = bytesPerRow;
+    int filter_size = 17;
+    Pixel_8888 bgColor = {0, 0, 0, 0};
+    vImageTentConvolve_ARGB8888(&srcBuffer, &dstBuffer, NULL, 0, 0, 
+        filter_size, filter_size, bgColor, kvImageTruncateKernel);
+    
     _video->width = width;
     _video->height = height;
+    
     if(_video->pixels != pixels)
         _video->pixels = pixels;
+    if(_video->conv_pixels != conv_pixels)
+        _video->conv_pixels = conv_pixels;
     
     CVPixelBufferUnlockBaseAddress(imageBuffer,0);
 }
@@ -230,16 +251,17 @@ CK_DLL_MFUN(video_pixel)
     // fprintf(stderr, "x: %li y: %li\n", x, y);
     
     if(vid->pixels && x >= 0 && x < vid->width && y >= 0 && y < vid->height)
-        RETURN->v_int = vid->pixels[y*vid->width+x];
+        RETURN->v_int = vid->conv_pixels[y*vid->width+x];
     else
         RETURN->v_int = 0;
 }
 
-float window(float dist, float width)
+inline float window(float dist, float width)
 {
     if(dist < width)
     {
-        return cosf(M_PI/2.0f*(dist/width));
+        //return cosf(M_PI/2.0f*(dist/width)); // cosine window
+        return 1-fabsf(dist/width); // triangle window
     }
     else
     {
@@ -247,23 +269,20 @@ float window(float dist, float width)
     }
 }
 
-void get_components(int pix, float &r, float &g, float &b)
+inline void get_components(int pix, t_CKINT &r, t_CKINT &g, t_CKINT &b)
 {
-    b = ((pix>> 0)&0xFF)/255.0;
-    g = ((pix>> 8)&0xFF)/255.0;
-    r = ((pix>>16)&0xFF)/255.0;
+    b = ((pix>> 0)&0xFF);
+    g = ((pix>> 8)&0xFF);
+    r = ((pix>>16)&0xFF);
 }
 
-int set_components(float r, float g, float b)
+inline int set_components(t_CKINT r, t_CKINT g, t_CKINT b)
 {
     int pix = 0;
     
-    if(r > 1) pix |= 0xFF0000;
-    else if(r > 0) pix |= ((int)(r*255))<<16;
-    if(g > 1) pix |= 0x00FF00;
-    else if(g > 0) pix |= ((int)(g*255))<< 8;
-    if(b > 1) pix |= 0x0000FF;
-    else if(b > 0) pix |= ((int)(b*255))<< 0;
+    pix |= (r&0xFF)<<16;
+    pix |= (g&0xFF)<< 8;
+    pix |= (b&0xFF)<< 0;
     
     return pix;
 }
@@ -275,26 +294,26 @@ CK_DLL_MFUN(video_pixelWithRadius)
     t_CKINT x = GET_NEXT_INT(ARGS);
     t_CKINT y = GET_NEXT_INT(ARGS);
     t_CKINT radius = GET_NEXT_INT(ARGS);
-    
+    t_CKINT radius_sq = radius*radius;
     // fprintf(stderr, "x: %li y: %li\n", x, y);
     
     if(vid->pixels && x >= 0 && x < vid->width && y >= 0 && y < vid->height)
     {
-        float r, g, b;
-        float num;
+        t_CKINT r, g, b;
+        t_CKFLOAT num;
         get_components(vid->pixels[y*vid->width+x], r, g, b);
         
-        for(int x2 = x-radius; x2 < x+radius; x2++)
+        for(int x2 = x-radius; x2 < x+radius; x2 += 2)
         {
-            for(int y2 = y-radius; y2 < y+radius; y2++)
+            for(int y2 = y-radius; y2 < y+radius; y2 += 2)
             {
                 if(x2 >= 0 && x2 < vid->width && y2 >= 0 && y2 < vid->height)
                 {
                     int distsq = (x-x2)*(x-x2) + (y-y2)*(y-y2);
-                    if(distsq < radius)
+                    if(distsq < radius_sq)
                     {
                         float dist = sqrtf(distsq);
-                        float r2, g2, b2;
+                        t_CKINT r2, g2, b2;
                         get_components(vid->pixels[y2*vid->width+x2], r2, g2, b2);
                         float alpha = window(dist, radius);
                         r += alpha*r2;

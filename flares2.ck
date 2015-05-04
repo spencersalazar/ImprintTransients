@@ -9,9 +9,9 @@ class Flare
     
     0 => int arrayIdx;
     2 => int vertDim;
-    float vertArray[vertDim*4];
-    float uvArray[2*4];
-    float colArray[4*4];
+    float vertArray[];
+    float uvArray[];
+    float colArray[];
     
     fun float setScale(float scale)
     {
@@ -36,35 +36,36 @@ class Flare
     
     fun void setColor(float r, float g, float b, float a)
     {
-        r => colArray[arrayIdx+0*4+0] => colArray[arrayIdx+1*4+0] => colArray[arrayIdx+2*4+0] => colArray[arrayIdx+3*4+0];
-        g => colArray[arrayIdx+0*4+1] => colArray[arrayIdx+1*4+1] => colArray[arrayIdx+2*4+1] => colArray[arrayIdx+3*4+1];
-        b => colArray[arrayIdx+0*4+2] => colArray[arrayIdx+1*4+2] => colArray[arrayIdx+2*4+2] => colArray[arrayIdx+3*4+2];
-        a => colArray[arrayIdx+0*4+3] => colArray[arrayIdx+1*4+3] => colArray[arrayIdx+2*4+3] => colArray[arrayIdx+3*4+3];
+        //chout <= r <= " " <= g <= " " <= b <= " " <= a <= "\n";
+        r => colArray[arrayIdx*16+0*4+0] => colArray[arrayIdx*16+1*4+0] => colArray[arrayIdx*16+2*4+0] => colArray[arrayIdx*16+3*4+0];
+        g => colArray[arrayIdx*16+0*4+1] => colArray[arrayIdx*16+1*4+1] => colArray[arrayIdx*16+2*4+1] => colArray[arrayIdx*16+3*4+1];
+        b => colArray[arrayIdx*16+0*4+2] => colArray[arrayIdx*16+1*4+2] => colArray[arrayIdx*16+2*4+2] => colArray[arrayIdx*16+3*4+2];
+        a => colArray[arrayIdx*16+0*4+3] => colArray[arrayIdx*16+1*4+3] => colArray[arrayIdx*16+2*4+3] => colArray[arrayIdx*16+3*4+3];
     } 
     
     fun void _updateGeo()
     {
         //<<< vertArray.size(), uvArray.size(), colArray.size() >>>;
-        center_x + offset_x => float _center_x;
-        center_y + offset_y => float _center_y;
-        radius*radiusScale => float _radius;
+        center_x + offset_x => float final_center_x;
+        center_y + offset_y => float final_center_y;
+        radius*radiusScale => float final_radius;
         
-        center_x - radius => vertArray[arrayIdx+0*vertDim+0];
-        center_y - radius => vertArray[arrayIdx+0*vertDim+1];
+        final_center_x - final_radius => vertArray[arrayIdx*vertDim*4+0*vertDim+0];
+        final_center_y - final_radius => vertArray[arrayIdx*vertDim*4+0*vertDim+1];
         
-        center_x + radius => vertArray[arrayIdx+1*vertDim+0];
-        center_y - radius => vertArray[arrayIdx+1*vertDim+1];
+        final_center_x + final_radius => vertArray[arrayIdx*vertDim*4+1*vertDim+0];
+        final_center_y - final_radius => vertArray[arrayIdx*vertDim*4+1*vertDim+1];
         
-        center_x - radius => vertArray[arrayIdx+2*vertDim+0];
-        center_y + radius => vertArray[arrayIdx+2*vertDim+1];
+        final_center_x + final_radius => vertArray[arrayIdx*vertDim*4+2*vertDim+0];
+        final_center_y + final_radius => vertArray[arrayIdx*vertDim*4+2*vertDim+1];
 
-        center_x + radius => vertArray[arrayIdx+3*vertDim+0];
-        center_y + radius => vertArray[arrayIdx+3*vertDim+1];
+        final_center_x - final_radius => vertArray[arrayIdx*vertDim*4+3*vertDim+0];
+        final_center_y + final_radius => vertArray[arrayIdx*vertDim*4+3*vertDim+1];
         
-        0 => uvArray[arrayIdx+0*2+0]; 0 => uvArray[arrayIdx+0*2+1];
-        1 => uvArray[arrayIdx+1*2+0]; 0 => uvArray[arrayIdx+1*2+1];
-        0 => uvArray[arrayIdx+2*2+0]; 1 => uvArray[arrayIdx+2*2+1];
-        1 => uvArray[arrayIdx+3*2+0]; 1 => uvArray[arrayIdx+3*2+1];
+        0 => uvArray[arrayIdx*8+0*2+0]; 0 => uvArray[arrayIdx*8+0*2+1];
+        1 => uvArray[arrayIdx*8+1*2+0]; 0 => uvArray[arrayIdx*8+1*2+1];
+        1 => uvArray[arrayIdx*8+2*2+0]; 1 => uvArray[arrayIdx*8+2*2+1];
+        0 => uvArray[arrayIdx*8+3*2+0]; 1 => uvArray[arrayIdx*8+3*2+1];
     }
 }
 
@@ -102,41 +103,25 @@ gfx.fullscreen();
 gfx.width() => float WIDTH;
 gfx.height() => float HEIGHT;
 
-WIDTH/35 => float inc;
-75 => float r;
-
-[-r, -r,
-  r, -r,
- -r,  r,
-  r,  r ]
-@=> float geo[];
-
-[0.0, 0.0, 
- 1.0, 0.0, 
- 0.0, 1.0,
- 1.0, 1.0]
-@=> float texcoord[];
+Video vid;
+vid.open();
+//3::second => now;
+<<< vid.width(), vid.height() >>>;
 
 chuglImage img;
 img.load(me.dir()+"flare.png");
 
-//Image img2;
-//img2.load(me.dir()+"gypsy.jpg");
-
-Video vid;
-vid.open();
-
-//1::second => now;
-
-<<< vid.width(), vid.height() >>>;
+WIDTH/80 => float inc;
+25 => float r;
 
 (WIDTH/inc) $int => int divwd;
 (HEIGHT/inc) $int => int divht;
 
-
 Flare flare[divwd][divht];
 2 => int VERT_DIM;
-
+float vertArray[VERT_DIM*4*divwd*divht];
+float uvArray[2*4*divwd*divht];
+float colArray[4*4*divwd*divht];
 
 curveExp flicker[divwd][divht];
 float phase[divwd][divht];
@@ -149,13 +134,12 @@ for(0 => int x; x < divwd; x++)
 {
     for(0 => int y; y < divht; y++)
     {
-        //VERT_DIM => flare[x][y].vertDim;
-        //float vertArray[VERT_DIM*4];
-        //vertArray @=> flare[x][y].vertArray;
-        //float uvArray[2*4];
-        //uvArray @=> flare[x][y].uvArray;
-        //float colArray[4*4];
-        //colArray @=> flare[x][y].colArray;
+        VERT_DIM => flare[x][y].vertDim;
+        vertArray @=> flare[x][y].vertArray;
+        uvArray @=> flare[x][y].uvArray;
+        colArray @=> flare[x][y].colArray;
+        y*divwd+x => flare[x][y].arrayIdx;
+        //<<< flare[x][y].arrayIdx >>>;
         r => flare[x][y].radius;
         
         0 => flicker[x][y].val;
@@ -184,7 +168,7 @@ fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*2*pi), 3)); }
 1 => float MINI_JITTER;
 30 => float JITTER_MAX_RADIUS;
 4 => float SCALING_MAX;
-1.25 => float br_reduction;
+2 => float br_reduction;
 
 fun void update()
 {
@@ -275,6 +259,8 @@ spork ~ update();
 spork ~ update();
 spork ~ update();
 
+0 => int frameCount;
+
 while(true)
 {    
     gl.MatrixMode(gl.PROJECTION);
@@ -282,6 +268,7 @@ while(true)
     gl.Ortho(0, WIDTH, 0, HEIGHT, -10, 100);
     
     gl.MatrixMode(gl.MODELVIEW);
+    gl.LoadIdentity();
     
     for(0 => int x; x < divwd; x++)
     {
@@ -305,7 +292,8 @@ while(true)
             // flip x axis (for mirroring effect)
             vid.width()-imgx => imgx;
             
-            vid.pixel(imgx, imgy, (inc*2)$int) => int pix;
+            //vid.pixel(imgx, imgy, (inc*2)$int) => int pix;
+            vid.pixel(imgx, imgy) => int pix;
             //((pix>>24)&0xFF)/255.0 => float a; ((pix>>16)&0xFF)/255.0 => float b; 
             //((pix>>8)&0xFF)/255.0 => float g;  ((pix>>0)&0xFF)/255.0 => float r;
             ((pix>>0)&0xFF)/255.0 => float b; ((pix>>8)&0xFF)/255.0 => float g; 
@@ -324,19 +312,12 @@ while(true)
             Math.pow(g, Math.pow(2,dr_smash)) => g;
             Math.pow(b, Math.pow(2,dr_smash)) => b;
             
-            gl.PushMatrix();
-            
-            gl.Enable(gl.BLEND);
-            gl.BlendFunc(gl.SRC_ALPHA, gl.ONE);
+            //gl.PushMatrix();
             
             flicker[x][y].val() => float val;
             
             ping.val() => float pingVal;
-            gl.Color4f(r*val*pingVal, g*val*pingVal, b*val*pingVal, 0.83*val);
             flare[x][y].setColor(r*val*pingVal, g*val*pingVal, b*val*pingVal, 0.83*val);
-            gl.ColorPointer(4, gl.DOUBLE, 0, flare[x][y].colArray);
-            gl.EnableClientState(gl.COLOR_ARRAY);
-            //gl.DisableClientState(gl.COLOR_ARRAY);
             
             //gl.Translatef(x*inc, y*inc, 0.0);
             //gl.Rotatef(phase[x][y]+now/second*freq[x][y], 0.01, 0.01, 1);
@@ -349,24 +330,54 @@ while(true)
             flare[x][y].setOffset(jitter_radius*Math.cos(rotZ/180.0*pi), jitter_radius*Math.sin(rotZ/180.0*pi));
             flare[x][y].setScale(scale);
             
-            gl.VertexPointer(2, gl.DOUBLE, 0, flare[x][y].vertArray);
-            gl.EnableClientState(gl.VERTEX_ARRAY);
-            
-            gl.Enable(gl.TEXTURE_2D);
-            gl.BindTexture(gl.TEXTURE_2D, img.tex());
-            
-            gl.TexCoordPointer(2, gl.DOUBLE, 0, flare[x][y].uvArray);
-            gl.EnableClientState(gl.TEXTURE_COORD_ARRAY);
-            
-            gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            
-            gl.PopMatrix();
+            if(true)
+            {
+                gl.Enable(gl.BLEND);
+                gl.BlendFunc(gl.SRC_ALPHA, gl.ONE);
+                
+                gl.ColorPointer(4, gl.DOUBLE, 0, colArray);
+                gl.EnableClientState(gl.COLOR_ARRAY);
+                
+                gl.VertexPointer(2, gl.DOUBLE, 0, vertArray);
+                gl.EnableClientState(gl.VERTEX_ARRAY);
+                
+                gl.Enable(gl.TEXTURE_2D);
+                gl.BindTexture(gl.TEXTURE_2D, img.tex());
+                
+                gl.TexCoordPointer(2, gl.DOUBLE, 0, uvArray);
+                gl.EnableClientState(gl.TEXTURE_COORD_ARRAY);
+                
+                gl.DrawArrays(gl.QUADS, flare[x][y].arrayIdx*4, 4);
+                gl.DrawArrays(gl.QUADS, flare[x][y].arrayIdx*4, 4);
+            }
         }
     }
-    
+        
+    if(false)
+    {
+        gl.Enable(gl.BLEND);
+        gl.BlendFunc(gl.SRC_ALPHA, gl.ONE);
+        
+        gl.ColorPointer(4, gl.DOUBLE, 0, colArray);
+        gl.EnableClientState(gl.COLOR_ARRAY);
+        
+        gl.VertexPointer(2, gl.DOUBLE, 0, vertArray);
+        gl.EnableClientState(gl.VERTEX_ARRAY);
+        
+        gl.Enable(gl.TEXTURE_2D);
+        gl.BindTexture(gl.TEXTURE_2D, img.tex());
+        
+        gl.TexCoordPointer(2, gl.DOUBLE, 0, uvArray);
+        gl.EnableClientState(gl.TEXTURE_COORD_ARRAY);
+        
+        gl.DrawArrays(gl.QUADS, 0, 4*divwd*divht);
+        gl.DrawArrays(gl.QUADS, 0, 4*divwd*divht);
+    }
+
     1 => ping.target;
     
     frame => now;
+    
+    frameCount++;
 }
 

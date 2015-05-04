@@ -2,7 +2,8 @@
 ARCHS?=i386 x86_64
 ARCHOPTS=$(addprefix -arch ,$(ARCHS))
 
-FRAMEWORKS=CoreFoundation Foundation CoreGraphics AVFoundation CoreVideo CoreMedia
+FRAMEWORKS=CoreFoundation Foundation CoreGraphics AVFoundation CoreVideo \
+    CoreMedia Accelerate
 
 FLAGS=-mmacosx-version-min=10.9 -D__MACOSX_CORE__ -I$(CK_SRC_PATH) $(ARCHOPTS) -fPIC
 LDFLAGS+=-mmacosx-version-min=10.9 -bundle -lstdc++ $(ARCHOPTS) \

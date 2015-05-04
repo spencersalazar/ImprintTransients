@@ -63,7 +63,7 @@ endif
 ifneq ($(CHUCK_DEBUG),)
 FLAGS+= -g
 else
-FLAGS+= -O3
+FLAGS+= -O3 -ffast-math
 endif
 
 ifneq ($(CHUCK_STRICT),)
