@@ -16,7 +16,7 @@ class Flare
     fun float setScale(float scale)
     {
         scale => radiusScale;
-        _updateGeo();
+        //_updateGeo();
         return scale;
     }
     
@@ -24,14 +24,14 @@ class Flare
     {
         _center_x => center_x;
         _center_y => center_y;
-        _updateGeo();
+        //_updateGeo();
     }
     
     fun void setOffset(float _offset_x, float _offset_y)
     {
         _offset_x => offset_x;
         _offset_y => offset_y;
-        _updateGeo();
+        //_updateGeo();
     }
     
     fun void setColor(float r, float g, float b, float a)
@@ -43,7 +43,7 @@ class Flare
         a => colArray[arrayIdx*16+0*4+3] => colArray[arrayIdx*16+1*4+3] => colArray[arrayIdx*16+2*4+3] => colArray[arrayIdx*16+3*4+3];
     } 
     
-    fun void _updateGeo()
+    fun void updateGeo()
     {
         //<<< vertArray.size(), uvArray.size(), colArray.size() >>>;
         center_x + offset_x => float final_center_x;
@@ -111,8 +111,8 @@ vid.open();
 chuglImage img;
 img.load(me.dir()+"flare.png");
 
-WIDTH/80 => float inc;
-25 => float r;
+WIDTH/50 => float inc;
+35 => float r;
 
 (WIDTH/inc) $int => int divwd;
 (HEIGHT/inc) $int => int divht;
@@ -329,6 +329,7 @@ while(true)
             flare[x][y].setCenter(x*inc, y*inc);
             flare[x][y].setOffset(jitter_radius*Math.cos(rotZ/180.0*pi), jitter_radius*Math.sin(rotZ/180.0*pi));
             flare[x][y].setScale(scale);
+            flare[x][y].updateGeo();
             
             if(true)
             {
