@@ -156,7 +156,7 @@ for(0 => int x; x < divwd; x++)
 (1.0/30.0)::second => dur frame;
 
 // cosine ramp from 0-1 with flattened midpoint
-fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*2*pi), 3)); }
+fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*0.5*2*pi), 3)); }
 
 0 => float mono_r;
 0 => float mono_g;
@@ -176,7 +176,10 @@ fun void update()
     while(true)
     {
         Math.random2(0, NMODES-1) => int mode;
-        Math.random2f(0.045, 0.055) => float freq;
+        //Math.random2f(0.045, 0.055) => float freq;
+        Math.random2f(0.055, 0.075) => float freq;
+        
+        0 => int up;
         
         if(mode == 0)
         {
@@ -194,13 +197,18 @@ fun void update()
         else if(mode == 1)
         {
             // monochromatic
-            Math.random2(0, 2) => int mono_color;
+            Math.random2(0, 1)*2 => int mono_color; // choose 0 or 2
+            
+            if(mono_color == 0) mono_r < 0.5 => up;
+            else if(mono_color == 1) mono_g < 0.5 => up;
+            else if(mono_color == 2) mono_b < 0.5 => up;
             
             now => time start;
             0 => float phase;
             while(phase <= 1)
             {
                 xcurve(phase) => float val;
+                if(!up) 1-val => val;
                 if(mono_color == 0) val => mono_r;
                 else if(mono_color == 1) val => mono_g;
                 else if(mono_color == 2) val => mono_b;
@@ -211,13 +219,19 @@ fun void update()
         }
         else if(mode == 2)
         {
-            1-Math.random2(0,2) => float sgn;
+            float sgn;
+            if(dr_smash == 0)
+                1-Math.random2(0,2) => sgn;
+            else
+                Math.sgn(dr_smash) => sgn;
             // dr_smash
+            Math.fabs(dr_smash) < 0.5 => up;
             now => time start;
             0 => float phase;
             while(phase <= 1)
             {
                 xcurve(phase) => float val;
+                if(!up) 1-val => val;
                 sgn*val => dr_smash;
                 (now-start)/second*freq => phase;
                 
@@ -227,11 +241,13 @@ fun void update()
         else if(mode == 3)
         {
             // jitter
+            jitter < 0.5 => up;
             now => time start;
             0 => float phase;
             while(phase <= 1)
             {
                 xcurve(phase) => float val;
+                if(!up) 1-val => val;
                 val => jitter;
                 (now-start)/second*freq => phase;
                 
@@ -241,11 +257,13 @@ fun void update()
         else if(mode == 4)
         {
             // scaling
+            scaling < 0.5 => up;
             now => time start;
             0 => float phase;
             while(phase <= 1)
             {
                 xcurve(phase) => float val;
+                if(!up) 1-val => val;
                 val => scaling;
                 (now-start)/second*freq => phase;
                 
