@@ -212,7 +212,7 @@ fun void update()
             {
                 xcurve(phase) => float val;
                 if(!up) 1-val => val;
-                val => mono_b;
+                val => mono_r;
                 (now-start)/second*freq => phase;
                 
                 frame => now;
