@@ -112,7 +112,7 @@ chuglImage img;
 img.load(me.dir()+"flare.png");
 
 WIDTH/50 => float inc;
-30*2 => float r;
+27*2 => float r;
 
 (WIDTH/inc) $int => int divwd;
 (HEIGHT/inc) $int => int divht;
@@ -167,8 +167,8 @@ fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*0.5*2*pi), 3)); }
 1 => float reso;
 1 => int RESO_MAX;
 
-1 => float MINI_JITTER;
-30 => float JITTER_MAX_RADIUS;
+1.5 => float MINI_JITTER;
+27 => float JITTER_MAX_RADIUS;
 4 => float SCALING_MAX;
 2 => float br_reduction;
 
