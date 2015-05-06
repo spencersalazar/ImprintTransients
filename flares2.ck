@@ -304,7 +304,7 @@ fun void update()
             while(phase <= 1)
             {
                 xcurve(phase) => float val;
-                Math.clamp(reso_start+val*sgn, 0, RESO_MAX) => reso;
+                Std.clampf(reso_start+val*sgn, 0, RESO_MAX) => reso;
                 (now-start)/second*freq => phase;
                 
                 frame => now;
