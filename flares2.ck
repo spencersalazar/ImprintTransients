@@ -112,7 +112,14 @@ chuglImage img;
 img.load(me.dir()+"flare.png");
 
 WIDTH/50 => float inc;
-27*2 => float r;
+32*2 => float r;
+
+1.5 => float MINI_JITTER;
+27 => float JITTER_MAX_RADIUS;
+4 => float SCALING_MAX;
+2 => float br_reduction;
+(1.0/30.0)::second => dur frame;
+
 
 (WIDTH/inc) $int => int divwd;
 (HEIGHT/inc) $int => int divht;
@@ -153,8 +160,6 @@ for(0 => int x; x < divwd; x++)
     }
 }
 
-(1.0/30.0)::second => dur frame;
-
 // cosine ramp from 0-1 with flattened midpoint
 fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*0.5*2*pi), 3)); }
 
@@ -166,11 +171,6 @@ fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*0.5*2*pi), 3)); }
 0 => float scaling;
 1 => float reso;
 1 => int RESO_MAX;
-
-1.5 => float MINI_JITTER;
-27 => float JITTER_MAX_RADIUS;
-4 => float SCALING_MAX;
-2 => float br_reduction;
 
 7 => int NMODES;
 int modeActive[NMODES];
@@ -297,12 +297,14 @@ fun void update()
             else if(reso > RESO_MAX-1) -1 => sgn;
             else (1-2*Math.random2(0,1)) => sgn; // randomly -1 or 1
             
+            <<< "(mode 6) reso:", reso, "sgn:", sgn >>>;
+            
             now => time start;
             0 => float phase;
             while(phase <= 1)
             {
                 xcurve(phase) => float val;
-                reso_start+val*sgn => reso;
+                Math.clamp(reso_start+val*sgn, 0, RESO_MAX) => reso;
                 (now-start)/second*freq => phase;
                 
                 frame => now;
@@ -329,13 +331,17 @@ while(true)
     gl.LoadIdentity();
     
     Math.pow(2, RESO_MAX-Math.ceil(reso))$int => int reso_inc;
-    1.0/Math.pow(2, reso) => float reso_scale;
+    if(reso_inc < 1) 1 => reso_inc;
+    1.0/Math.pow(3, reso) => float reso_scale;
     (reso-Math.floor(reso)) => float reso_inc_scale;
     if(reso_inc_scale == 0) 1 => reso_inc_scale;
-    Math.pow(reso_inc_scale, 7) => reso_inc_scale;
+    Math.pow(reso_inc_scale, 2) => reso_inc_scale;
     
-    //<<< "reso: ", reso, "reso_scale: ", reso_scale, "reso_inc_scale: ", reso_inc_scale >>>;
-    
+    if(frameCount%15 == 0)
+        <<< "reso: ", reso, "reso_scale: ", reso_scale, "reso_inc_scale: ", reso_inc_scale >>>;
+    //if(reso_inc == 0)
+    //<<< "reso:", reso, "reso_inc:", reso_inc, "reso_scale:", reso_scale, "reso_inc_scale:", reso_inc_scale >>>;
+
     for(0 => int x; x < divwd; reso_inc +=> x)
     {
         for(0 => int y; y < divht; reso_inc +=> y)
@@ -379,6 +385,7 @@ while(true)
             Math.pow(r, Math.pow(2,dr_smash)) => r;
             Math.pow(g, Math.pow(2,dr_smash)) => g;
             Math.pow(b, Math.pow(2,dr_smash)) => b;
+            
             
             //gl.PushMatrix();
             
