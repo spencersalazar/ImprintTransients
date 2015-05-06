@@ -112,7 +112,7 @@ chuglImage img;
 img.load(me.dir()+"flare.png");
 
 WIDTH/50 => float inc;
-35 => float r;
+30*2 => float r;
 
 (WIDTH/inc) $int => int divwd;
 (HEIGHT/inc) $int => int divht;
@@ -164,18 +164,25 @@ fun float xcurve(float x) { return 0.5*(1-Math.pow(Math.cos(x*0.5*2*pi), 3)); }
 0 => float dr_smash;
 0 => float jitter;
 0 => float scaling;
+1 => float reso;
+1 => int RESO_MAX;
 
 1 => float MINI_JITTER;
 30 => float JITTER_MAX_RADIUS;
 4 => float SCALING_MAX;
 2 => float br_reduction;
 
+7 => int NMODES;
+int modeActive[NMODES];
+
 fun void update()
 {
-    5 => int NMODES;
     while(true)
     {
         Math.random2(0, NMODES-1) => int mode;
+        //6 => int mode;
+        while(modeActive[mode] && mode != 0) (mode+1)%NMODES => mode;
+        true => modeActive[mode];
         //Math.random2f(0.045, 0.055) => float freq;
         Math.random2f(0.055, 0.075) => float freq;
         
@@ -196,12 +203,8 @@ fun void update()
         }
         else if(mode == 1)
         {
-            // monochromatic
-            Math.random2(0, 1)*2 => int mono_color; // choose 0 or 2
-            
-            if(mono_color == 0) mono_r < 0.5 => up;
-            else if(mono_color == 1) mono_g < 0.5 => up;
-            else if(mono_color == 2) mono_b < 0.5 => up;
+            // monochrome red
+            mono_r < 0.5 => up;
             
             now => time start;
             0 => float phase;
@@ -209,9 +212,7 @@ fun void update()
             {
                 xcurve(phase) => float val;
                 if(!up) 1-val => val;
-                if(mono_color == 0) val => mono_r;
-                else if(mono_color == 1) val => mono_g;
-                else if(mono_color == 2) val => mono_b;
+                val => mono_b;
                 (now-start)/second*freq => phase;
                 
                 frame => now;
@@ -219,9 +220,26 @@ fun void update()
         }
         else if(mode == 2)
         {
+            // monochrome blue
+            mono_b < 0.5 => up;
+            
+            now => time start;
+            0 => float phase;
+            while(phase <= 1)
+            {
+                xcurve(phase) => float val;
+                if(!up) 1-val => val;
+                val => mono_b;
+                (now-start)/second*freq => phase;
+                
+                frame => now;
+            }            
+        }
+        else if(mode == 3)
+        {
             float sgn;
             if(dr_smash == 0)
-                1-Math.random2(0,2) => sgn;
+                1-2*Math.random2(0,1) => sgn; // randomly -1 or 1
             else
                 Math.sgn(dr_smash) => sgn;
             // dr_smash
@@ -238,7 +256,7 @@ fun void update()
                 frame => now;
             }            
         }
-        else if(mode == 3)
+        else if(mode == 4)
         {
             // jitter
             jitter < 0.5 => up;
@@ -254,7 +272,7 @@ fun void update()
                 frame => now;
             }
         }
-        else if(mode == 4)
+        else if(mode == 5)
         {
             // scaling
             scaling < 0.5 => up;
@@ -270,6 +288,28 @@ fun void update()
                 frame => now;
             }
         }
+        else if(mode == 6)
+        {
+            // reso up/down
+            reso => float reso_start;
+            float sgn;
+            if(reso < 1) 1 => sgn;
+            else if(reso > RESO_MAX-1) -1 => sgn;
+            else (1-2*Math.random2(0,1)) => sgn; // randomly -1 or 1
+            
+            now => time start;
+            0 => float phase;
+            while(phase <= 1)
+            {
+                xcurve(phase) => float val;
+                reso_start+val*sgn => reso;
+                (now-start)/second*freq => phase;
+                
+                frame => now;
+            }
+        }
+        
+        false => modeActive[mode];
     }    
 }
 
@@ -288,10 +328,20 @@ while(true)
     gl.MatrixMode(gl.MODELVIEW);
     gl.LoadIdentity();
     
-    for(0 => int x; x < divwd; x++)
+    Math.pow(2, RESO_MAX-Math.ceil(reso))$int => int reso_inc;
+    1.0/Math.pow(2, reso) => float reso_scale;
+    (reso-Math.floor(reso)) => float reso_inc_scale;
+    if(reso_inc_scale == 0) 1 => reso_inc_scale;
+    Math.pow(reso_inc_scale, 7) => reso_inc_scale;
+    
+    //<<< "reso: ", reso, "reso_scale: ", reso_scale, "reso_inc_scale: ", reso_inc_scale >>>;
+    
+    for(0 => int x; x < divwd; reso_inc +=> x)
     {
-        for(0 => int y; y < divht; y++)
+        for(0 => int y; y < divht; reso_inc +=> y)
         {
+            ((x % (reso_inc*2))==reso_inc || (y % (reso_inc*2))==reso_inc) => int is_skip;
+            
             if(flicker[x][y].target() == 1)
             {
                 if(Math.random2f(0,1) < 0.0001)
@@ -333,14 +383,17 @@ while(true)
             //gl.PushMatrix();
             
             flicker[x][y].val() => float val;
+            0.83 => float alpha;
+            if(is_skip) reso_inc_scale *=> alpha;
             
             ping.val() => float pingVal;
-            flare[x][y].setColor(r*val*pingVal, g*val*pingVal, b*val*pingVal, 0.83*val);
+            flare[x][y].setColor(r*val*pingVal, g*val*pingVal, b*val*pingVal, alpha*val);
             
             //gl.Translatef(x*inc, y*inc, 0.0);
             //gl.Rotatef(phase[x][y]+now/second*freq[x][y], 0.01, 0.01, 1);
             //gl.Translatef(jitter*jitter_amt[x][y]*JITTER_MAX_RADIUS, jitter*jitter_amt[x][y]*JITTER_MAX_RADIUS, 0.0);
-            flicker[x][y].val()*scale[x][y]*Math.pow(SCALING_MAX,scaling_amt[x][y]*scaling) => float scale;
+            flicker[x][y].val()*scale[x][y]*Math.pow(SCALING_MAX,scaling_amt[x][y]*scaling)*reso_scale => float scale;
+            if(is_skip) reso_inc_scale *=> scale;
             MINI_JITTER + jitter*jitter_amt[x][y]*JITTER_MAX_RADIUS => float jitter_radius;
             phase[x][y]+now/second*freq[x][y] => float rotZ; // degrees
             //gl.Scalef(scale, scale, 1);
