@@ -8,6 +8,8 @@
 #include <AVFoundation/AVFoundation.h>
 #include <Accelerate/Accelerate.h>
 
+#include <semaphore.h>
+
 // general includes
 #include <stdio.h>
 #include <limits.h>
@@ -60,13 +62,35 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 class Video
 {
 public:
-    Video() : pixels(NULL), width(0), height(0) { }
+    Video() : pixels(NULL), conv_pixels(NULL), width(0), height(0)
+    {
+        double_buffer_idx = 0;
+        m_newData = NULL;
+        m_filterReady = NULL;
+        m_filterQueue = NULL;
+        pixels_double_buffer[0] = NULL;
+        pixels_double_buffer[1] = NULL;
+    }
     
     ~Video()
     {
-        [m_session stopRunning];
-        [m_session release];
-        m_session = nil;
+        m_doFilter = false;
+        if(m_session)
+        {
+            [m_session stopRunning];
+            [m_session release];
+            m_session = nil;
+        }
+        
+        if(conv_pixels) { free(conv_pixels); conv_pixels = NULL; }
+        if(pixels_double_buffer[0]) { free(pixels_double_buffer[0]); pixels_double_buffer[0] = NULL; }
+        if(pixels_double_buffer[1]) { free(pixels_double_buffer[1]); pixels_double_buffer[1] = NULL; }
+        
+        if(m_filterQueue) { dispatch_release(m_filterQueue); m_filterQueue = NULL; }
+        if(m_newData) { sem_close(m_newData); m_newData = NULL; }
+        if(m_filterReady) { sem_close(m_filterReady); m_filterReady = NULL; }
+        
+        sem_unlink("newData"); sem_unlink("filterReady");
     }
     
     t_CKBOOL open()
@@ -118,17 +142,58 @@ public:
         [m_session addOutput:output];
         
         [m_session startRunning];
+        //m_newData = false;
+        
+        sem_unlink("newData"); sem_unlink("filterReady");
+        m_newData = sem_open("newData", O_CREAT|O_EXCL, S_IRUSR|S_IWUSR, 0);
+        m_filterReady = sem_open("filterReady", O_CREAT|O_EXCL, S_IRUSR|S_IWUSR, 0);
+        fprintf(stderr, "%0x %0x\n", m_newData, m_filterReady);
+        m_filterQueue = dispatch_queue_create("edu.stanford.chuck.Video.filter", DISPATCH_QUEUE_SERIAL);
+        dispatch_async(m_filterQueue, ^{
+            m_doFilter = true;
+            while(m_doFilter)
+            {
+                sem_post(m_filterReady);
+                
+                if(sem_wait(m_newData) == 0)
+                {
+                    fprintf(stderr, "filtering data\n");
+                    //UInt32 *pixels = pixels_double_buffer[double_buffer_idx];
+                    // filter
+                    vImage_Buffer srcBuffer = {};
+                    srcBuffer.data = pixels_double_buffer[double_buffer_idx];
+                    srcBuffer.height = height; srcBuffer.width = width;
+                    srcBuffer.rowBytes = bytesPerRow;
+                    vImage_Buffer dstBuffer = {};
+                    dstBuffer.data = conv_pixels;
+                    dstBuffer.height = height; dstBuffer.width = width;
+                    dstBuffer.rowBytes = bytesPerRow;
+                    int filter_size = 17;
+                    Pixel_8888 bgColor = {0, 0, 0, 0};
+                    vImageTentConvolve_ARGB8888(&srcBuffer, &dstBuffer, NULL, 0, 0, 
+                        filter_size, filter_size, bgColor, kvImageTruncateKernel);
+                }
+            }
+        });
         
         return TRUE;
     }
     
     UInt32 *pixels;
+    UInt32 *pixels_double_buffer[2];
+    size_t double_buffer_idx;
     UInt32 *conv_pixels;
-    UInt32 width, height;
+    UInt32 width, height, bytesPerRow;
+    sem_t *m_newData;
+    sem_t *m_filterReady;
     
 protected:
     AVCaptureSession *m_session;
     VideoBufferDelegate *m_delegate;
+    
+    dispatch_queue_t m_filterQueue;
+    bool m_doFilter;
+    //bool m_newData;
 };
 
 @implementation VideoBufferDelegate
@@ -152,39 +217,42 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     
     //NSLog(@"newFrame %lu %lu", width, height);
     
-    UInt32 *pixels = _video->pixels;
-    UInt32 *conv_pixels = _video->conv_pixels;
-    
-    if(pixels == NULL)
+    if(sem_trywait(_video->m_filterReady) == 0)
     {
-        //NSLog(@"malloc %lu %lu", height*bytesPerRow, width*height*4);
-        pixels = (UInt32 *) malloc(height*bytesPerRow);
-        conv_pixels = (UInt32 *) malloc(height*bytesPerRow);
+        fprintf(stderr, "loading new frame\n");
+        UInt32 *pixels_double_buffer[2] = { NULL, NULL };
+        pixels_double_buffer[0] = _video->pixels_double_buffer[0];
+        pixels_double_buffer[1] = _video->pixels_double_buffer[1];
+        // size_t double_buffer_idx = _video->double_buffer_idx;
+        UInt32 *conv_pixels = _video->conv_pixels;
+        bool doSet = false;
+         
+        if(pixels_double_buffer[0] == NULL)
+        {
+            doSet = true;
+            NSLog(@"malloc %lu %lu", height*bytesPerRow, width*height*4);
+            _video->double_buffer_idx = 0;
+            pixels_double_buffer[0] = (UInt32 *) calloc(1, height*bytesPerRow);
+            pixels_double_buffer[1] = (UInt32 *) calloc(1, height*bytesPerRow);
+            conv_pixels = (UInt32 *) calloc(1, height*bytesPerRow);
+        }
+        
+        size_t idx = (_video->double_buffer_idx+1)%2;
+        memcpy(pixels_double_buffer[idx], baseAddress, height*bytesPerRow);
+        _video->double_buffer_idx = idx;
+        
+        if(doSet)
+        {
+            _video->width = width;
+            _video->height = height;
+            _video->bytesPerRow = bytesPerRow;
+            _video->pixels_double_buffer[0] = pixels_double_buffer[0];
+            _video->pixels_double_buffer[1] = pixels_double_buffer[1];
+            _video->conv_pixels = conv_pixels;
+        }
+        
+        sem_post(_video->m_newData);
     }
-    
-    memcpy(pixels, baseAddress, height*bytesPerRow);
-    
-    // filter
-    vImage_Buffer srcBuffer = {};
-    srcBuffer.data = pixels;
-    srcBuffer.height = height; srcBuffer.width = width;
-    srcBuffer.rowBytes = bytesPerRow;
-    vImage_Buffer dstBuffer = {};
-    dstBuffer.data = conv_pixels;
-    dstBuffer.height = height; dstBuffer.width = width;
-    dstBuffer.rowBytes = bytesPerRow;
-    int filter_size = 17;
-    Pixel_8888 bgColor = {0, 0, 0, 0};
-    vImageTentConvolve_ARGB8888(&srcBuffer, &dstBuffer, NULL, 0, 0, 
-        filter_size, filter_size, bgColor, kvImageTruncateKernel);
-    
-    _video->width = width;
-    _video->height = height;
-    
-    if(_video->pixels != pixels)
-        _video->pixels = pixels;
-    if(_video->conv_pixels != conv_pixels)
-        _video->conv_pixels = conv_pixels;
     
     CVPixelBufferUnlockBaseAddress(imageBuffer,0);
 }
@@ -250,7 +318,7 @@ CK_DLL_MFUN(video_pixel)
     
     // fprintf(stderr, "x: %li y: %li\n", x, y);
     
-    if(vid->pixels && x >= 0 && x < vid->width && y >= 0 && y < vid->height)
+    if(vid->conv_pixels && x >= 0 && x < vid->width && y >= 0 && y < vid->height)
         RETURN->v_int = vid->conv_pixels[y*vid->width+x];
     else
         RETURN->v_int = 0;
