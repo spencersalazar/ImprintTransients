@@ -15,6 +15,9 @@
 #include <limits.h>
 
 
+#define FILTER_KERNEL_SIZE 13
+
+
 t_CKINT video_data_offset = 0;
 
 
@@ -157,7 +160,7 @@ public:
                 
                 if(sem_wait(m_newData) == 0)
                 {
-                    fprintf(stderr, "filtering data\n");
+                    // fprintf(stderr, "filtering data\n");
                     //UInt32 *pixels = pixels_double_buffer[double_buffer_idx];
                     // filter
                     vImage_Buffer srcBuffer = {};
@@ -168,7 +171,7 @@ public:
                     dstBuffer.data = conv_pixels;
                     dstBuffer.height = height; dstBuffer.width = width;
                     dstBuffer.rowBytes = bytesPerRow;
-                    int filter_size = 17;
+                    int filter_size = FILTER_KERNEL_SIZE;
                     Pixel_8888 bgColor = {0, 0, 0, 0};
                     vImageTentConvolve_ARGB8888(&srcBuffer, &dstBuffer, NULL, 0, 0, 
                         filter_size, filter_size, bgColor, kvImageTruncateKernel);
@@ -219,7 +222,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     
     if(sem_trywait(_video->m_filterReady) == 0)
     {
-        fprintf(stderr, "loading new frame\n");
+        // fprintf(stderr, "loading new frame\n");
         UInt32 *pixels_double_buffer[2] = { NULL, NULL };
         pixels_double_buffer[0] = _video->pixels_double_buffer[0];
         pixels_double_buffer[1] = _video->pixels_double_buffer[1];

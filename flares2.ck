@@ -111,13 +111,13 @@ vid.open();
 chuglImage img;
 img.load(me.dir()+"flare.png");
 
-WIDTH/50 => float inc;
-32*2 => float r;
+WIDTH/90 => float inc;
+22*2 => float r;
 
 1.5 => float MINI_JITTER;
 27 => float JITTER_MAX_RADIUS;
-4 => float SCALING_MAX;
-2 => float br_reduction;
+3 => float SCALING_MAX;
+1 => float br_reduction;
 (1.0/30.0)::second => dur frame;
 
 
@@ -317,7 +317,7 @@ fun void update()
 
 spork ~ update();
 spork ~ update();
-spork ~ update();
+//spork ~ update();
 
 0 => int frameCount;
 
@@ -337,8 +337,8 @@ while(true)
     if(reso_inc_scale == 0) 1 => reso_inc_scale;
     Math.pow(reso_inc_scale, 2) => reso_inc_scale;
     
-    if(frameCount%15 == 0)
-        <<< "reso: ", reso, "reso_scale: ", reso_scale, "reso_inc_scale: ", reso_inc_scale >>>;
+    //if(frameCount%15 == 0)
+    //<<< "reso: ", reso, "reso_scale: ", reso_scale, "reso_inc_scale: ", reso_inc_scale >>>;
     //if(reso_inc == 0)
     //<<< "reso:", reso, "reso_inc:", reso_inc, "reso_scale:", reso_scale, "reso_inc_scale:", reso_inc_scale >>>;
 
@@ -382,9 +382,9 @@ while(true)
             br*(mono_b) + b*Std.clampf(1-(mono_r+mono_g+mono_b), 0, 1) => b;
             
             // apply dynamic range control
-            Math.pow(r, Math.pow(2,dr_smash)) => r;
-            Math.pow(g, Math.pow(2,dr_smash)) => g;
-            Math.pow(b, Math.pow(2,dr_smash)) => b;
+            Math.pow(r, Math.pow(2,dr_smash*0.62)) => r;
+            Math.pow(g, Math.pow(2,dr_smash*0.62)) => g;
+            Math.pow(b, Math.pow(2,dr_smash*0.62)) => b;
             // instead: contrast control
             //Math.pow(2, dr_smash*2) => float contrast_pow;
             //Std.scalef(Math.sgn(r)*Math.pow(Math.fabs(Std.scalef(r, 0, 1, -1, 1)), contrast_pow), -1, 1, 0, 1) => r;
