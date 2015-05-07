@@ -385,7 +385,11 @@ while(true)
             Math.pow(r, Math.pow(2,dr_smash)) => r;
             Math.pow(g, Math.pow(2,dr_smash)) => g;
             Math.pow(b, Math.pow(2,dr_smash)) => b;
-            
+            // instead: contrast control
+            //Math.pow(2, dr_smash*2) => float contrast_pow;
+            //Std.scalef(Math.sgn(r)*Math.pow(Math.fabs(Std.scalef(r, 0, 1, -1, 1)), contrast_pow), -1, 1, 0, 1) => r;
+            //Std.scalef(Math.sgn(g)*Math.pow(Math.fabs(Std.scalef(g, 0, 1, -1, 1)), contrast_pow), -1, 1, 0, 1) => g;
+            //Std.scalef(Math.sgn(b)*Math.pow(Math.fabs(Std.scalef(b, 0, 1, -1, 1)), contrast_pow), -1, 1, 0, 1) => b;
             
             //gl.PushMatrix();
             
